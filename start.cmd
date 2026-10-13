@@ -3,6 +3,8 @@ rem EasyRead launcher for Windows. First run creates .venv and installs; later r
 setlocal
 cd /d "%~dp0"
 set PYTHONUTF8=1
+rem Share data (library, config, prefs) with the installed desktop app
+set EASYREAD_HOME=%USERPROFILE%\EasyRead
 if exist ".venv\Scripts\pythonw.exe" goto run
 
 echo Setting up EasyRead (first run only, about a minute)...
@@ -18,7 +20,43 @@ if not exist ".venv\Scripts\python.exe" goto nopython
 ".venv\Scripts\python.exe" -m pip install -q -e . || goto fail
 
 :run
+rem Optional Google Drive sync via rclone: pull before start, push after EasyRead closes.
+rem Skipped unless rclone is installed and the remote (default "gdrive") is set up with "rclone config".
+if not defined EASYREAD_REMOTE set "EASYREAD_REMOTE=gdrive:EasyRead/library"
+set "SYNC_LOCAL=%EASYREAD_HOME%\library"
+set "SYNC_MARK=%EASYREAD_HOME%\.rclone-bisync-ready"
+where rclone >nul 2>nul || goto launch
+for /f "tokens=1 delims=:" %%r in ("%EASYREAD_REMOTE%") do set "SYNC_NAME=%%r"
+rclone listremotes | findstr /b /i /c:"%SYNC_NAME%:" >nul || goto launch
+echo Syncing library with %EASYREAD_REMOTE% ...
+call :sync
+if errorlevel 1 (
+  echo.
+  echo Sync before start failed, see above. EasyRead will open the local copy.
+  pause
+)
+echo EasyRead is running. Keep this window open: the library syncs again after EasyRead closes.
+start "" /wait ".venv\Scripts\pythonw.exe" -m easyread serve --open --exit-on-close
+echo Syncing library back to %EASYREAD_REMOTE% ...
+call :sync
+if not errorlevel 1 exit /b 0
+echo.
+echo Sync after exit failed, see above. Changes are kept locally and will sync next time.
+pause
+exit /b 1
+
+:launch
 start "" ".venv\Scripts\pythonw.exe" -m easyread serve --open --exit-on-close
+exit /b 0
+
+:sync
+if not exist "%SYNC_LOCAL%" mkdir "%SYNC_LOCAL%"
+rclone mkdir "%EASYREAD_REMOTE%" || exit /b 1
+rem First run on this computer needs --resync to build the baseline; newer copy wins on both sides.
+set "SYNC_FIRST="
+if not exist "%SYNC_MARK%" set "SYNC_FIRST=--resync --resync-mode newer"
+rclone bisync "%EASYREAD_REMOTE%" "%SYNC_LOCAL%" %SYNC_FIRST% --resilient --recover --max-lock 5m --conflict-resolve newer --transfers 16 --checkers 16 --fast-list --exclude ".easyread-lock.json" --exclude ".easyread-probe-*" --exclude ".easyread-copy-*/**" || exit /b 1
+if not exist "%SYNC_MARK%" type nul > "%SYNC_MARK%"
 exit /b 0
 
 :nopython
