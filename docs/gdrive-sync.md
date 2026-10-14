@@ -62,13 +62,27 @@ rclone bisync gdrive:EasyRead/library "%USERPROFILE%\EasyRead\library" --resync 
 
 成功后自己创建上面那个标记文件。
 
-## 新电脑上的完整步骤
+## 新电脑上的完整步骤（可以直接交给 AI 执行）
 
-1. 获取代码（包含同步功能的 `start.cmd`），安装 Python 3.10+（勾选 "Add python.exe to PATH"）。
-2. `winget install Rclone.Rclone`。
-3. 复制 `rclone.conf`，或者按上面的第 3 步重新授权。
-4. 双击 `start.cmd`：自动建好 Python 环境，下载整个文献库，然后打开 EasyRead。
-5. 在设置里重新填写模型和 API Key。这些在 `config.json` 里，不在 `library` 里，不会同步。如果两台电脑的用户名相同，也可以直接复制 `%USERPROFILE%\EasyRead\config.json`。
+在新电脑上对 AI 说"按 docs/gdrive-sync.md 把这台新电脑配好"，AI 按下面的步骤操作。人只需要做两件事：提供 `rclone.conf`（或在浏览器里点一次授权），以及提供模型的 API Key。
+
+**给执行的 AI：** 每一步先检查，已经满足就跳过；整个过程可以重复运行。需要人做的事一次问清楚，其余的不要逐步确认。不要把 `rclone.conf`、client_secret、API Key 写进仓库、提交或贴到对话以外的地方。
+
+0. **先问一句：旧电脑上的 EasyRead 关掉了吗，黑窗口同步完了吗？** 没有的话，先让人去关，否则新电脑拿不到最后那次的改动。
+1. **代码。** 如果当前目录不是这个仓库，就运行 `git clone https://github.com/weipangit/easyread.git "%USERPROFILE%\easyread"`（人指定了位置就用人指定的），后面的步骤都在仓库目录里执行。
+2. **Python 3.10+。** 用 `py -3 --version` 或 `python --version` 检查；没有就运行 `winget install Python.Python.3.12`。
+3. **rclone 1.66+。** 用 `rclone version` 检查；没有就运行 `winget install Rclone.Rclone`。刚装完时当前 shell 的 PATH 还没更新，这时用完整路径调用：`%LOCALAPPDATA%\Microsoft\WinGet\Packages\Rclone.Rclone_*\rclone-*\rclone.exe`。
+4. **Drive 授权。** 如果 `rclone listremotes` 里已经有 `gdrive:`，就跳过这一步。没有的话，问人选哪种方式：
+   - 人给出旧电脑上 `rclone.conf` 的位置（U 盘之类）：复制到 `%APPDATA%\rclone\rclone.conf`；
+   - 人给出 client_id 和 client_secret：运行 `rclone config create gdrive drive scope=drive client_id=<…> client_secret=<…>`，提醒人在弹出的浏览器里选自己的 Gmail，看到 "Google hasn't verified this app" 时点 Continue。
+
+   做完后，用 `rclone lsd gdrive:EasyRead` 确认能看到 `library`。
+5. **Python 环境。** 如果没有 `.venv\Scripts\pythonw.exe`，就运行 `py -3 -m venv .venv`（没有 `py` 就用 `python`），再运行 `.venv\Scripts\python.exe -m pip install -q -e .`。
+6. **第一次同步。** 如果 `%USERPROFILE%\EasyRead\.rclone-bisync-ready` 已经存在，就跳过。否则在后台运行上面"第一次同步"里那条手动 `rclone bisync … --resync …` 命令（库大的话要很久，不要因为超时中断），成功后创建这个标记文件。失败时看输出，对照下面的排错表处理。
+7. **核对。** 运行 `rclone size gdrive:EasyRead/library` 和 `rclone size "%USERPROFILE%\EasyRead\library"`，两边的文件数应该一致（只差排除掉的那几种文件）。
+8. **桌面快捷方式。** 在桌面建一个名为 `EasyRead` 的快捷方式，指向仓库里的 `start.cmd`，起始位置设为仓库目录。以后只用这个快捷方式启动。
+9. **模型和 API Key。** 这些在 `%USERPROFILE%\EasyRead\config.json` 里，不会同步。问人：是要从旧电脑复制 `config.json`（两台电脑用户名相同时可以直接用），还是打开 EasyRead 后在设置里重新填。
+10. **收尾。** 告诉人：已经配好了，双击桌面上的 `EasyRead` 就能用；用的时候黑窗口要一直开着；不要两台电脑同时开着 EasyRead。
 
 ## 日常使用规则
 
