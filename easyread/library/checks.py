@@ -82,7 +82,8 @@ def tex_problems(items: list) -> list[str]:
     if not node or not items:
         return []
     proc = subprocess.run([node, str(CHECK_TEX), str(KATEX)], input=json.dumps(items, ensure_ascii=False),
-                          capture_output=True, text=True, encoding="utf-8")
+                          capture_output=True, text=True, encoding="utf-8",
+                          creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     if proc.returncode not in (0, 1):
         return [f"TeX 检查没跑起来：{proc.stderr.strip()[:300]}"]  # i18n-ok
     return [line for line in proc.stdout.splitlines() if line.strip()]
