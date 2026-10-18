@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import time
@@ -15,6 +16,8 @@ from ..app.i18n import tr
 from ..app.log import log
 from .store import SCHEMA, DataReadError, Workspace, dir_lock, empty_discussion, empty_reader, now_iso, read_json, write_json_atomic
 
+
+TITLES_FILE = "titles.txt"  # 库根目录的标题清单，打开文献库时自动更新
 
 
 def sha256_bytes(data: bytes) -> str:
@@ -87,7 +90,23 @@ class Library:
                 items.append({"id": ws.id, "title_en": ws.id, "tags": [],
                               "status": "unread", "load_error": tr(
                                   "无法读取数据文件：{path}；原文件已保留，请从备份恢复或联系维护者", path=str(e.path))})
+        self.write_titles(items)
         return items
+
+    def write_titles(self, items: list[dict]) -> None:
+        """在库根目录维护 titles.txt：每行一篇论文的标题，内容没变就不写。"""
+        titles = sorted({" ".join((i.get("title_en") or i.get("title_zh") or i["id"]).split())
+                         for i in items if not i.get("load_error")}, key=str.casefold)
+        text = "".join(t + "\n" for t in titles)
+        path = self.root / TITLES_FILE
+        try:
+            if path.exists() and path.read_text(encoding="utf-8") == text:
+                return
+            tmp = path.with_name(f".{TITLES_FILE}.{time.monotonic_ns()}.tmp")
+            tmp.write_text(text, encoding="utf-8", newline="\n")
+            os.replace(tmp, path)
+        except OSError:
+            log.exception("写 %s 失败", TITLES_FILE)
 
     # ---------- 导入 ----------
     def create_from_pdf(self, data: bytes, filename: str, meta: dict | None = None) -> tuple[Workspace, bool]:
