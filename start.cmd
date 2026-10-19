@@ -20,11 +20,13 @@ if not exist ".venv\Scripts\python.exe" goto nopython
 ".venv\Scripts\python.exe" -m pip install -q -e . || goto fail
 
 :run
-rem Optional Google Drive sync via rclone: pull before start, push after EasyRead closes.
+rem Optional Google Drive sync via rclone: pull before start, sync after 10 minutes without changes, push after EasyRead closes.
 rem Skipped unless rclone is installed and the remote (default "gdrive") is set up with "rclone config".
 if not defined EASYREAD_REMOTE set "EASYREAD_REMOTE=gdrive:EasyRead/library"
 set "SYNC_LOCAL=%EASYREAD_HOME%\library"
 set "SYNC_MARK=%EASYREAD_HOME%\.rclone-bisync-ready"
+rem "start.cmd --sync" runs one sync only; scripts\sync_watch.py calls it while EasyRead is open.
+if /i "%~1"=="--sync" goto sync
 where rclone >nul 2>nul || goto launch
 for /f "tokens=1 delims=:" %%r in ("%EASYREAD_REMOTE%") do set "SYNC_NAME=%%r"
 rclone listremotes | findstr /b /i /c:"%SYNC_NAME%:" >nul || goto launch
@@ -35,8 +37,8 @@ if errorlevel 1 (
   echo Sync before start failed, see above. EasyRead will open the local copy.
   pause
 )
-echo EasyRead is running. Keep this window open: the library syncs again after EasyRead closes.
-start "" /wait ".venv\Scripts\pythonw.exe" -m easyread serve --open --exit-on-close
+echo EasyRead is running. Keep this window open: the library syncs after 10 minutes without changes, and again after EasyRead closes.
+".venv\Scripts\python.exe" scripts\sync_watch.py "%SYNC_LOCAL%" "%~f0" -- ".venv\Scripts\pythonw.exe" -m easyread serve --open --exit-on-close
 echo Syncing library back to %EASYREAD_REMOTE% ...
 call :sync
 if not errorlevel 1 exit /b 0

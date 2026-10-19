@@ -4,10 +4,10 @@
 
 ```
 电脑 A 本地库  ⇄  Google Drive: EasyRead/library  ⇄  电脑 B 本地库
-           （启动前拉一次 / 退出后推一次）
+     （启动前拉一次 / 10 分钟没改动推一次 / 退出后推一次）
 ```
 
-`start.cmd` 负责同步：装了 rclone、配置了名为 `gdrive` 的远端时，启动 EasyRead 前先双向同步一次，EasyRead 关掉后再同步一次。没装 rclone 或没配置远端时，和原来一样直接启动。
+`start.cmd` 负责同步：装了 rclone、配置了名为 `gdrive` 的远端时，启动 EasyRead 前先双向同步一次；运行期间文献库有改动、并且之后连续 10 分钟没有新改动时，再同步一次（由 `scripts/sync_watch.py` 每 30 秒检查一次）；EasyRead 关掉后再同步一次。没装 rclone 或没配置远端时，和原来一样直接启动。
 
 和"把文献库迁到 Google Drive 同步文件夹"（设置 → 云文献库）相比，这种做法有几个好处：读写都在本机，速度快；不受 Drive 流式模式"文件只留在云端"的影响；断网时也能打开；同步时机明确，开始用之前一定已经拿到最新内容。
 
@@ -86,7 +86,7 @@ rclone bisync gdrive:EasyRead/library "%USERPROFILE%\EasyRead\library" --resync 
 
 ## 日常使用规则
 
-- **只用 `start.cmd` 启动。** 用 `easyread.exe` 或安装版启动不会同步。如果用了它们，关掉之后再双击一次 `start.cmd`、然后关掉，把改动推上去。
+- **只用 `start.cmd` 启动。** 用 `easyread.exe` 或安装版启动不会同步。如果用了它们，关掉之后运行一次 `start.cmd --sync`，把改动推上去。
 - **EasyRead 运行时，黑窗口要一直开着。** 关掉 EasyRead 后，窗口会做最后一次同步，然后自行关闭。
 - **不要在两台电脑上同时开着 EasyRead。** 正确的顺序是：在 A 上关掉，等同步完成，再到 B 上打开。
 - 同步失败时窗口会暂停并给出提示。启动前同步失败时，用本地库照常打开；退出后同步失败时，改动留在本地，下次启动会补上。
@@ -97,6 +97,8 @@ rclone bisync gdrive:EasyRead/library "%USERPROFILE%\EasyRead\library" --resync 
 |---|---|
 | 同步哪个目录 | 只同步 `%USERPROFILE%\EasyRead\library`（`start.cmd` 设置了 `EASYREAD_HOME=%USERPROFILE%\EasyRead`）。如果在"设置 → 云文献库"里把库迁到了别处，要先迁回来。 |
 | 换远端或路径 | 运行 `start.cmd` 前设置环境变量 `EASYREAD_REMOTE`，例如 `mydrive:Papers/library`。 |
+| 运行中多久同步一次 | 文献库最后一次改动后安静满 10 分钟就同步，一直在改就一直等；没有新改动不会同步。想改等待时间，运行 `start.cmd` 前设置环境变量 `EASYREAD_SYNC_QUIET`（秒），例如 `300`。运行中的同步失败会在窗口里提示，再等一个安静期重试，不会暂停。 |
+| 手动同步一次 | 运行 `start.cmd --sync`，只同步，不打开 EasyRead。 |
 | 不同步的文件 | `.easyread-lock.json`（设备心跳）、`.easyread-probe-*`（写入探测）、`.easyread-copy-*/`（迁移临时目录）。 |
 | 冲突 | `--conflict-resolve newer`：两边都改过的文件保留较新的。 |
 | 同步中途被打断 | 锁文件 5 分钟后自动失效（`--max-lock 5m`），下次运行会自动恢复（`--recover`）。已经传完的文件不会重传。 |
