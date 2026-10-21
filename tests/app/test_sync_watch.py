@@ -44,12 +44,12 @@ class SyncWatchTest(unittest.TestCase):
         self.clock = Clock()
         self.synced_at = []
 
-    def run_watch(self, steps, ok=True):
+    def run_watch(self, steps, ok=True, initial=False):
         def sync():
             self.synced_at.append(self.clock.t)
             return ok
         app = FakeApp(self.clock, steps)
-        return sync_watch.watch(app, self.root, sync, quiet=600, poll=30, clock=self.clock)
+        return sync_watch.watch(app, self.root, sync, quiet=600, poll=30, clock=self.clock, initial=initial)
 
     def write(self, name, text="x"):
         def step():
@@ -68,7 +68,8 @@ class SyncWatchTest(unittest.TestCase):
         self.assertEqual(self.synced_at, [630.0])
 
     def test_keeps_waiting_while_changes_continue(self):
-        steps = [self.write("paper-a/progress.json", str(i)) for i in range(30)] + [None] * 25
+        # 每次长度不同，两次写入时间戳相同也能看出改动
+        steps = [self.write("paper-a/progress.json", "x" * (i + 1)) for i in range(30)] + [None] * 25
         self.run_watch(steps)
         # 最后一次改动在第 900 秒，安静满 600 秒才同步
         self.assertEqual(self.synced_at, [1500.0])
@@ -88,6 +89,24 @@ class SyncWatchTest(unittest.TestCase):
     def test_failed_sync_retries_after_another_quiet_period(self):
         self.run_watch([self.write("paper-b/meta.json")] + [None] * 50, ok=False)
         self.assertEqual(self.synced_at, [630.0, 1230.0])
+
+    def test_initial_sync_runs_right_after_start(self):
+        self.run_watch([None] * 40, initial=True)
+        # 启动时同步一次，之后没有新改动不再同步
+        self.assertEqual(self.synced_at, [0.0])
+
+    def test_initial_sync_counts_files_it_pulled_as_synced(self):
+        def sync():
+            self.synced_at.append(self.clock.t)
+            (self.root / "paper-b.json").write_text("{}", encoding="utf-8")  # 从云端拉下来的
+            return True
+        app = FakeApp(self.clock, [None] * 40)
+        sync_watch.watch(app, self.root, sync, quiet=600, poll=30, clock=self.clock, initial=True)
+        self.assertEqual(self.synced_at, [0.0])
+
+    def test_failed_initial_sync_retries_after_quiet_period(self):
+        self.run_watch([None] * 30, ok=False, initial=True)
+        self.assertEqual(self.synced_at, [0.0, 600.0])
 
     def test_returns_app_exit_code(self):
         app = FakeApp(self.clock, [])

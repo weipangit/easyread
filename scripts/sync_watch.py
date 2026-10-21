@@ -1,4 +1,4 @@
-"""start.cmd 用：启动 EasyRead，运行期间文献库连续一段时间（默认 10 分钟）没有改动、且有没同步的改动时，同步一次。
+"""start.cmd 用：启动 EasyRead，随即在后台同步一次；运行期间文献库连续一段时间（默认 10 分钟）没有改动、且有没同步的改动时，再同步一次。
 
 python scripts/sync_watch.py <文献库目录> <start.cmd 路径> -- <EasyRead 命令…>
 同步时运行 "start.cmd --sync"。
@@ -48,10 +48,20 @@ def span(seconds: float) -> str:
     return f"{seconds / 60:g} min" if seconds >= 60 else f"{seconds:g} s"
 
 
-def watch(app, root: Path, sync, quiet: float = QUIET, poll: float = POLL, clock=time.monotonic) -> int:
-    """app 退出前一直盯着文献库；sync() 返回 True 表示同步成功。同步进行时不检查 app，同步完才会返回。"""
+def watch(app, root: Path, sync, quiet: float = QUIET, poll: float = POLL, clock=time.monotonic,
+          initial: bool = False) -> int:
+    """app 退出前一直盯着文献库；sync() 返回 True 表示同步成功。同步进行时不检查 app，同步完才会返回。
+    initial=True 时 app 一启动就先同步一次，失败了按普通改动处理，等一个安静期再试。"""
     synced = last = snapshot(root)
     changed_at = None
+    if initial:
+        log("Syncing library in the background ...")
+        if sync():
+            synced = last = snapshot(root)
+            log("Sync done.")
+        else:
+            synced, changed_at = frozenset(), clock()  # 当作有没同步的改动
+            log(f"Sync failed, will retry after {span(quiet)} without changes.")
     while True:
         try:
             return app.wait(timeout=poll)
@@ -81,7 +91,8 @@ def main(argv) -> int:
     quiet = float(os.environ.get("EASYREAD_SYNC_QUIET") or QUIET)
     app = subprocess.Popen(app_cmd)
     try:
-        return watch(app, root, lambda: subprocess.run(sync_cmd).returncode == 0, quiet=quiet, poll=min(POLL, quiet))
+        return watch(app, root, lambda: subprocess.run(sync_cmd).returncode == 0, quiet=quiet, poll=min(POLL, quiet),
+                     initial=True)
     except KeyboardInterrupt:
         return app.wait()
 
