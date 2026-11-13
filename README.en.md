@@ -25,7 +25,7 @@ Runs locally. You choose the model service and whether to keep your library in a
 
 ## How it differs from "throw the PDF into a translator"
 
-- **Reads like a typeset book.** Serif body text, comfortable line length and spacing. Equations are re-rendered with KaTeX, tables become clean three-line tables, references stay in the original. One click in the top bar for dark mode.
+- **Reads like a typeset book.** Serif body text, comfortable line length and spacing. Equations are re-rendered with KaTeX, tables become clean three-line tables, references stay in the original, and bold and italic in the original carry over to the translation. One click in the top bar for dark mode.
 - **The original is always right there.** Toggle "bilingual" to show the English under each paragraph. Open the original page on the right: it follows your reading position and draws a box around the paragraph you're on.
 - **Find text in a paper.** Press Ctrl / ⌘ + F to search both the original and the translation, with a match count and highlighted results. Enter / Shift + Enter moves to the next / previous match.
 - **Translation and commentary are kept apart.** The main text is only the faithful translation. AI explanations and answers go in the margin, so you always know what the paper actually says.
@@ -52,6 +52,7 @@ Runs locally. You choose the model service and whether to keep your library in a
 | **Claude Code** (recommended) | [Claude Code](https://docs.claude.com/en/docs/claude-code/setup) installed and logged in | No API key, uses your subscription. Looks at the page image to check equations. Best quality |
 | **Codex CLI** | [Codex](https://github.com/openai/codex) installed and logged in | No API key, uses your ChatGPT account |
 | **CodeBuddy CLI** | Install and sign in using the [official CLI docs](https://www.codebuddy.cn/docs/cli/headless); your account needs CLI access | No API key. Type the model name, or leave it empty for the CLI default. [The current free trial does not include CLI access](https://www.codebuddy.cn/docs/workbuddy/Pricing); credits are shared with WorkBuddy on the same account |
+| **ZCode CLI (experimental)** | Install and sign in using the [official CLI guide](https://github.com/zai-org/ZCode/tree/main/apps/zcode-cli/docs/usage), with `zcode` available on PATH | Reuses the local login and model settings. Supports translation, Ask AI and image attachments when the selected model supports them. Real-account calls still need verification |
 | **Grok Build / Antigravity CLI / Cursor CLI** | [Grok Build](https://x.ai/cli), [Antigravity CLI](https://antigravity.google/docs/cli) or [Cursor CLI](https://cursor.com/docs/cli/installation) installed and logged in | No API key, uses that subscription. Type the model name, or leave it empty for the CLI's default |
 | **API · China**: DeepSeek / Zhipu / Alibaba Bailian (Qwen) / Kimi / SiliconFlow / ModelScope | API key | Zhipu GLM-4.7-Flash and SiliconFlow small models are free; DeepSeek costs cents per paper |
 | **API · International**: OpenAI / Anthropic / Gemini / OpenRouter / Groq / Cerebras | API key | Gemini, OpenRouter, Groq, Cerebras have free tiers |
